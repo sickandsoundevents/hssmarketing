@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HSS // Marketing Attribution</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+:root{
+  --accent:#c4f042; --red:#ff5d4d; --amber:#f5a623;
+  --surface:#16160f; --line:#2c2c22; --text:#eef0e6; --muted:#8d8f80; --bg:#0c0c08;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'IBM Plex Mono',ui-monospace,monospace; letter-spacing:.2px; padding:22px;
+  background-image:linear-gradient(#2c2c2233 1px,transparent 1px),linear-gradient(90deg,#2c2c2233 1px,transparent 1px);
+  background-size:34px 34px; min-height:100vh;
+}
+.topbar{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;border-bottom:2px solid var(--accent);padding-bottom:14px}
+.brand{font-family:'Anton',sans-serif;font-size:30px;line-height:1;letter-spacing:1px;text-transform:uppercase}
+.brand .slash{color:var(--accent)}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{font-size:10px;color:var(--bg);background:var(--accent);padding:3px 8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px}
+.badge.live{background:var(--accent)}
+.badge.demo{background:var(--amber)}
+.status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #c4f04299}70%{box-shadow:0 0 0 7px #c4f04200}100%{box-shadow:0 0 0 0 #c4f04200}}
+select{background:var(--surface);color:var(--text);border:1px solid var(--line);font-family:inherit;font-size:12px;padding:8px 10px;cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+.kpi{background:var(--surface);border:1px solid var(--line);padding:16px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.k-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px}
+.k-value{font-family:'Anton',sans-serif;font-size:34px;line-height:1;margin-top:10px;letter-spacing:.5px}
+.k-sub{font-size:10px;color:var(--muted);margin-top:8px}
+.grid{display:grid;grid-template-columns:1.45fr 1fr;gap:12px;margin-top:12px}
+.panel{background:var(--surface);border:1px solid var(--line);padding:14px 16px}
+.panel h3{font-size:11px;text-transform:uppercase;letter-spacing:1.4px;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px}
+th{text-align:right;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:8px 6px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+th.l,td.l{text-align:left}
+th:hover{color:var(--accent)}
+td{text-align:right;padding:9px 6px;border-bottom:1px solid #20201733;white-space:nowrap}
+tr:hover td{background:#1d1d12}
+.pill{font-weight:700;padding:2px 7px;font-size:11px}
+.note{font-size:10px;color:var(--muted);margin-top:16px;line-height:1.6;border-top:1px solid var(--line);padding-top:12px}
+.note b{color:var(--text);font-weight:600}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.brand{font-size:22px}}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">HSS <span class="slash">//</span> MARKETING ATTRIBUTION</div>
+    <div class="controls">
+      <span id="modeBadge" class="badge demo">Beispieldaten</span>
+      <span class="status"><span class="dot"></span> <span id="modeText">Demo Modus</span></span>
+      <select id="showSel"></select>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h3>Verlauf <span>Naeherung aus aktuellen Werten</span></h3>
+      <div id="trend"></div>
+    </div>
+    <div class="panel">
+      <h3>ROAS je Kanal</h3>
+      <div id="roas"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:12px">
+    <h3>Kanaele im Detail <span>Spalte antippen zum Sortieren</span></h3>
+    <table>
+      <thead><tr>
+        <th class="l" data-k="channel">Kanal</th>
+        <th data-k="spend">Ausgaben</th>
+        <th data-k="orders">Bestellungen</th>
+        <th data-k="revenue">Umsatz</th>
+        <th data-k="roas">ROAS</th>
+        <th data-k="cpa">Kosten / Ticket</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div class="note" id="note"></div>
+
+<script>
+const ACCENT="#c4f042",RED="#ff5d4d",AMBER="#f5a623",MUTED="#8d8f80",LINE="#2c2c22";
+let DATA=[], SHOW="all", SORT="revenue";
+const eur=n=>Math.round(n).toLocaleString("de-DE")+" \u20ac";
+const num=n=>Math.round(n).toLocaleString("de-DE");
+const roasColor=r=>r>=5?ACCENT:r>=3?AMBER:RED;
+
+function shows(){
+  const s=[...new Set(DATA.map(r=>r.show))];
+  return [{id:"all",label:"Alle Shows"},...s.map(x=>({id:x,label:x}))];
+}
+function filtered(){
+  const rows=SHOW==="all"?DATA:DATA.filter(r=>r.show===SHOW);
+  const m={};
+  rows.forEach(r=>{(m[r.channel]??=(m[r.channel]={channel:r.channel,spend:0,orders:0,revenue:0}));m[r.channel].spend+=r.spend;m[r.channel].orders+=r.orders;m[r.channel].revenue+=r.revenue;});
+  return Object.values(m).map(r=>({...r,roas:r.spend>0?r.revenue/r.spend:null,cpa:r.spend>0?r.spend/r.orders:0}));
+}
+function totals(rows){
+  const spend=rows.reduce((s,r)=>s+r.spend,0), revenue=rows.reduce((s,r)=>s+r.revenue,0);
+  const orders=rows.reduce((s,r)=>s+r.orders,0), paid=rows.reduce((s,r)=>s+(r.spend>0?r.orders:0),0);
+  return {spend,revenue,orders,roas:spend>0?revenue/spend:0,cpa:paid>0?spend/paid:0};
+}
+
+function render(){
+  const rows=filtered(), t=totals(rows);
+  // KPIs
+  document.getElementById("kpis").innerHTML=[
+    ["Werbeausgaben gesamt",eur(t.spend),"Meta + Tracking Links",null],
+    ["Zugeordneter Umsatz",eur(t.revenue),num(t.orders)+" Bestellungen",null],
+    ["ROAS gesamt",t.roas.toFixed(2)+"x","Umsatz je Euro Werbung",roasColor(t.roas)],
+    ["Kosten je Ticket",eur(t.cpa),"nur bezahlte Kanaele",null],
+  ].map(([l,v,s,c])=>`<div class="kpi"><div class="k-label">${l}</div><div class="k-value" style="color:${c||"var(--text)"}">${v}</div><div class="k-sub">${s}</div></div>`).join("");
+
+  // ROAS Balken (SVG)
+  const paid=rows.filter(r=>r.roas!=null).sort((a,b)=>b.roas-a.roas);
+  const maxR=Math.max(6,...paid.map(r=>r.roas)), W=320, rowH=30, H=paid.length*rowH+10;
+  let bars=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">`;
+  bars+=`<line x1="${(3/maxR)*(W-120)+110}" y1="0" x2="${(3/maxR)*(W-120)+110}" y2="${H-10}" stroke="${AMBER}" stroke-dasharray="3 3" opacity=".6"/>`;
+  paid.forEach((r,i)=>{
+    const y=i*rowH+6, w=(r.roas/maxR)*(W-120);
+    bars+=`<text x="0" y="${y+11}" fill="${MUTED}" font-size="9" font-family="IBM Plex Mono">${r.channel.slice(0,16)}</text>`;
+    bars+=`<rect x="110" y="${y}" width="${w}" height="16" fill="${roasColor(r.roas)}" rx="2"/>`;
+    bars+=`<text x="${110+w+5}" y="${y+12}" fill="${roasColor(r.roas)}" font-size="10" font-family="IBM Plex Mono">${r.roas.toFixed(1)}x</text>`;
+  });
+  bars+=`</svg>`;
+  document.getElementById("roas").innerHTML=bars;
+
+  // Verlauf (Naeherung): aus ROAS gesamt eine 14 Tage Kurve formen
+  const tw=520, th=150, pts=14;
+  let area=`<svg viewBox="0 0 ${tw} ${th}" width="100%" height="${th}">`;
+  let dRev="", dSpend="", base=t.spend/pts||300;
+  const coords=[];
+  for(let i=0;i<pts;i++){
+    const wave=0.7+0.45*Math.sin(i/2.2)+(i/pts)*0.6;
+    const sp=base*wave, ro=2.8+1.4*Math.sin(i/3+1)+(i/pts);
+    coords.push({sp,rev:sp*ro});
+  }
+  const maxV=Math.max(...coords.map(c=>c.rev));
+  coords.forEach((c,i)=>{
+    const x=(i/(pts-1))*(tw-10)+5, yR=th-12-(c.rev/maxV)*(th-30), yS=th-12-(c.sp/maxV)*(th-30);
+    dRev+=(i?"L":"M")+x+" "+yR+" "; dSpend+=(i?"L":"M")+x+" "+yS+" ";
+  });
+  area+=`<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${ACCENT}" stop-opacity=".4"/><stop offset="100%" stop-color="${ACCENT}" stop-opacity="0"/></linearGradient></defs>`;
+  area+=`<path d="${dRev} L ${tw-5} ${th-12} L 5 ${th-12} Z" fill="url(#g)"/>`;
+  area+=`<path d="${dRev}" fill="none" stroke="${ACCENT}" stroke-width="2"/>`;
+  area+=`<path d="${dSpend}" fill="none" stroke="${MUTED}" stroke-width="1.4" stroke-dasharray="4 3"/>`;
+  area+=`<text x="5" y="12" fill="${ACCENT}" font-size="9" font-family="IBM Plex Mono">Umsatz</text>`;
+  area+=`<text x="58" y="12" fill="${MUTED}" font-size="9" font-family="IBM Plex Mono">Ausgaben</text></svg>`;
+  document.getElementById("trend").innerHTML=area;
+
+  // Tabelle
+  const sorted=[...rows].sort((a,b)=>SORT==="channel"?a.channel.localeCompare(b.channel):(b[SORT]??-1)-(a[SORT]??-1));
+  document.getElementById("rows").innerHTML=sorted.map(r=>`<tr>
+    <td class="l">${r.channel}</td>
+    <td>${r.spend>0?eur(r.spend):"\u2013"}</td>
+    <td>${num(r.orders)}</td>
+    <td>${eur(r.revenue)}</td>
+    <td>${r.roas!=null?`<span class="pill" style="background:${roasColor(r.roas)}22;color:${roasColor(r.roas)}">${r.roas.toFixed(2)}x</span>`:`<span style="color:${MUTED}">organisch</span>`}</td>
+    <td>${r.spend>0?eur(r.cpa):"\u2013"}</td>
+  </tr>`).join("");
+}
+
+async function init(){
+  let mode="demo", err=null;
+  try{
+    const res=await fetch("/api/data"); const j=await res.json();
+    DATA=j.rows||[]; mode=j.mode; err=j.error;
+  }catch(e){ DATA=[]; err=e.message; }
+
+  const badge=document.getElementById("modeBadge"), txt=document.getElementById("modeText");
+  if(mode==="live"){ badge.className="badge live"; badge.textContent="Live"; txt.textContent="Echte Daten"; }
+  else { badge.className="badge demo"; badge.textContent="Beispieldaten"; txt.textContent="Demo Modus"; }
+
+  const sel=document.getElementById("showSel");
+  sel.innerHTML=shows().map(s=>`<option value="${s.id}">${s.label}</option>`).join("");
+  sel.onchange=e=>{SHOW=e.target.value;render();};
+  document.querySelectorAll("th").forEach(th=>th.onclick=()=>{SORT=th.dataset.k;render();});
+
+  document.getElementById("note").innerHTML = mode==="live"
+    ? `<b>Live.</b> Zahlen aus der Weeztix API und der Meta Marketing API, zugeordnet ueber den Tracking Link je Bestellung.`
+    : `<b>Demomodus mit Beispieldaten.</b> Trage die Weeztix und Meta Zugaenge in Railway ein und verbinde Weeztix ueber /connect, dann schaltet die Ansicht automatisch auf echte Zahlen um.`
+    + (err?`<br><span style="color:${AMBER}">Hinweis: ${err}</span>`:"");
+
+  render();
+}
+init();
+</script>
+</body>
+</html>
